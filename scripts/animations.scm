@@ -28,3 +28,8 @@
   (animation-create
    "sunbeam-1.png"
    0 0 43 44 0 0))
+
+(define anim-pixel
+  (animation-create
+   "pixel.png"
+   0 0 1 1 0 0))

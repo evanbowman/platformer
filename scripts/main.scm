@@ -35,7 +35,10 @@
 
 (camera-set-target (*player* 'get-handle))
 (camera-set-springiness 1.5)
-(camera-set-zoom 2)
+(camera-set-zoom
+ (let ((avg-screen (/ (+ (car (window-size))
+                         (cdr (window-size))) 2)))
+   (floor (* avg-screen (/ 1 585)))))
 
 (switch-level apartment-0)
 
