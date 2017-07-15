@@ -12,12 +12,12 @@
 (define anim-apt-0-bkg
   (animation-create
    "apartment-level-0.png"
-   0 0 193 144 0 0))
+   0 0 384 144 0 0))
 
 (define anim-apt-0-fg
   (animation-create
    "apartment-level-0-mask.png"
-   0 0 224 176 0 0))
+   0 0 414 176 0 0))
 
 (define anim-sunbeam-0
   (animation-create
@@ -28,6 +28,11 @@
   (animation-create
    "sunbeam-1.png"
    0 0 43 44 0 0))
+
+(define anim-ceiling-light-0
+  (animation-create
+   "ceiling-light-0.png"
+   0 0 83 50 0 0))
 
 (define anim-pixel
   (animation-create
