@@ -59,15 +59,20 @@
                      (> (cdr player-pos) y)
                      (< (car player-pos) (+ w x))
                      (< (cdr player-pos) (+ h y)))
-                (lerp 0 a (* dt 0.0000025)))
+                #| This 1 alpha unit margin prevents an
+                annoying flicker that occurs due to round off
+                error. |#                 
+                (if (> a 1)
+                    (lerp 0 a (* dt 0.0000025))
+                    a))
                (else
-                (lerp room-alpha-dark a (* dt 0.000005))))))
-          (cond
-           ((not (and (eq? new-alpha 0)
-                      (eq? new-alpha room-alpha-dark)))
-            (entity-set-rgba (vector-ref room 0) 20 20 54
-                             (floor (inexact->exact new-alpha)))
-            (vector-set! room 5 new-alpha))))
+                ;; See above comment about round off error.
+                (if (< a (- room-alpha-dark 1))
+                    (lerp room-alpha-dark a (* dt 0.000005))
+                    a)))))
+          (entity-set-rgba (vector-ref room 0) 20 20 54
+                           (floor (inexact->exact new-alpha)))
+          (vector-set! room 5 new-alpha))
         room-list))))
    
   ((enter)
@@ -99,7 +104,6 @@
    (define sunbeam-1 (entity-create))
    (define lamp-light (entity-create))
    (set-refresh-rgba 20 20 54 255)
-   (entity-set-rgba (*player* 'get-handle) 200 200 200 255)
    (entity-set-rgba lamp-light 255 255 255 255)
    (entity-set-animation bkg anim-apt-0-bkg)
    (entity-set-animation sunbeam-0 anim-sunbeam-0)
@@ -114,16 +118,20 @@
    (entity-set-blend-mode sunbeam-0 blend-add)
    (entity-set-blend-mode sunbeam-1 blend-add)
    (entity-set-blend-mode lamp-light blend-add)
-   (entity-set-position sunbeam-0 97 18)
-   (entity-set-position sunbeam-1 150 66)
+   (entity-set-position sunbeam-0 161 18)
+   (entity-set-position sunbeam-1 214 66)
    (entity-set-position fg -15 -16)
-   (entity-set-position lamp-light 279 78)
+   (entity-set-position lamp-light 343 78)
    (apartment-0 'add-entity bkg)
    (apartment-0 'add-entity sunbeam-0)
    (apartment-0 'add-entity sunbeam-1)
    (apartment-0 'add-entity lamp-light)
    (apartment-0 'add-entity fg)
-   (*player* 'reset-with-position 87 119)
-   (camera-set-center 87 119)
-   (apartment-0 'add-room (create-room 0 0 196 144))
-   (apartment-0 'add-room (create-room 197 0 192 144))))
+   (*player* 'reset-with-position 364 119)
+   (camera-set-center 365 119)
+   (apartment-0 'add-room (create-room 0 0 64 144))
+   (apartment-0 'add-room (create-room 64 0 196 144))
+   (apartment-0 'add-room (create-room 261 0 192 144))))
+
+(define apartments-hallway (Level))
+
