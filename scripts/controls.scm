@@ -5,5 +5,5 @@
 ;;; may be easily changed by editing a single variable.
 ;;;
 
-(define mapped-key-left key-left)
-(define mapped-key-right key-right)
+(define mapped-key-left sge-key-left)
+(define mapped-key-right sge-key-right)

@@ -12,35 +12,36 @@
 (include "wall.scm")
 (include "controls.scm")
 (include "animations.scm")
+(include "repl.scm")
 
 (define (main)
   (logic-loop))
 
-(define *delta-timer* (timer-create))
-(define *logic-timer* (timer-create))
+(define *delta-timer* (sge-timer-create))
+(define *logic-timer* (sge-timer-create))
 (define *low-power-mode* #t)
 
 (define (logic-loop)
-  (cond ((not (engine-is-running?)) '())
+  (cond ((not (sge-is-running?)) '())
    (else
-    (logic-step (timer-reset *delta-timer*))
+    (logic-step (sge-timer-reset *delta-timer*))
     (cond
      (*low-power-mode*
-      (let ((logic-usec (timer-reset *logic-timer*)))
-        (micro-sleep (max 0 (- 2000 logic-usec))))))
+      (let ((logic-usec (sge-timer-reset *logic-timer*)))
+        (sge-micro-sleep (max 0 (- 2000 logic-usec))))))
     (logic-loop))))
 
 (define *player* (Player))
 (*player* 'init)
 
-(camera-set-target (*player* 'get-handle))
-(camera-set-springiness 1.5)
-(camera-set-zoom
- (let ((avg-screen (/ (+ (car (window-size))
-                         (cdr (window-size))) 2)))
+(sge-camera-set-target (*player* 'get-handle))
+(sge-camera-set-springiness 1.5)
+(sge-camera-set-zoom
+ (let ((avg-screen (/ (+ (car (sge-window-size))
+                         (cdr (sge-window-size))) 2)))
    (floor (* avg-screen (/ 1 585)))))
 
-(switch-level apartment-0)
+(switch-level apt-0)
 
 (define (logic-step dt)
   (*current-level* 'update dt))
