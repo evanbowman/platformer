@@ -12,7 +12,7 @@
 (include "wall.scm")
 (include "controls.scm")
 (include "animations.scm")
-(include "repl.scm")
+(include "command.scm")
 
 (define (main)
   (logic-loop))
@@ -21,14 +21,16 @@
 (define *logic-timer* (sge-timer-create))
 (define *low-power-mode* #t)
 
+(define (lpm-sleep)
+  (let ((logic-usec (sge-timer-reset *logic-timer*)))
+    (sge-micro-sleep (max 0 (- 2000 logic-usec)))))
+
 (define (logic-loop)
   (cond ((not (sge-is-running?)) '())
    (else
     (logic-step (sge-timer-reset *delta-timer*))
-    (cond
-     (*low-power-mode*
-      (let ((logic-usec (sge-timer-reset *logic-timer*)))
-        (sge-micro-sleep (max 0 (- 2000 logic-usec))))))
+    (cond (*low-power-mode*) (lpm-sleep))
+    (cond ((sge-key-pressed? sge-key-esc) (cmd-mode)))
     (logic-loop))))
 
 (define *player* (Player))

@@ -69,7 +69,7 @@
                 ;; See above comment about round off error.
                 (if (< a (- room-alpha-dark 1))
                     (lerp room-alpha-dark a (* dt 0.000005))
-                    a)))))
+                    room-alpha-dark)))))
           (sge-entity-set-rgba (vector-ref room 0) 20 20 54
                                (floor (inexact->exact new-alpha)))
           (vector-set! room 5 new-alpha))
