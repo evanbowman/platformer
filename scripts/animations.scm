@@ -39,6 +39,11 @@
    "pixel.png"
    0 0 1 1 0 0))
 
+(define anim-ubuntu-mono-18
+  (sge-animation-create
+   "ubuntu-mono-18.png"
+   0 0 9 18 0 0))
+
 ;; (define anim-apt-hallway
 ;;   (sge-animation-create
 ;;    "apartment-hallway.png"

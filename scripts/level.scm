@@ -13,6 +13,7 @@
     (sge-entity-set-scale entity w h)
     (sge-entity-set-position entity x y)
     (sge-entity-set-zorder entity 3)
+    (sge-entity-set-rgba entity 20 20 54 room-alpha-dark)
     (vector entity x y w h room-alpha-dark)))
 
 (define (remove-room room)

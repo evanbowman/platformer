@@ -8,24 +8,24 @@
 
 (use-modules (rnrs bytevectors))
 
-(define cmd-history '())
-
 (define cmd-box
   (sge-entity-set-rgba
-   (sge-entity-set-animation
-    (sge-entity-set-zorder
+   (sge-entity-set-zorder
+    (sge-entity-set-animation
      (sge-entity-add-attrib
       (sge-entity-add-attrib
        (sge-entity-create) sge-attrib-hidden)
-      sge-attrib-position-absolute) 1000) anim-pixel)
+      sge-attrib-position-absolute) anim-pixel) 1000)
    0 0 0 100))
 
 (define cmd-box-height 25)
-(define cmd-char-width 5)
-(define cmd-char-height 5)
+(define cmd-char-width 9)
+(define cmd-char-height 18)
+(define cmd-char-margin 3)
 
 (define (cmd-mode)
   (define view-size (sge-camera-get-view-size))
+  (set! cmd-hist-ptr -1)
   (sge-entity-remove-attrib cmd-box sge-attrib-hidden)
   (sge-entity-set-scale cmd-box (car view-size) cmd-box-height)
   (sge-entity-set-position cmd-box 0 (- (cdr view-size) cmd-box-height))
@@ -48,6 +48,7 @@
   (define char-entity (sge-entity-create))
   (sge-entity-set-animation char-entity anim-pixel)
   (sge-entity-set-scale char-entity cmd-char-width cmd-char-height)
+  (sge-entity-set-animation char-entity anim-ubuntu-mono-18)
   (sge-entity-set-zorder char-entity 1001)
   (sge-entity-add-attrib char-entity sge-attrib-position-absolute)
   char-entity)
@@ -60,8 +61,11 @@
                                top-char))))
   (sge-entity-remove-attrib char-entity sge-attrib-hidden)
   (sge-entity-set-position char-entity
-                           (* (length cmd-expr-visual) cmd-char-width)
-                           (- (cdr (sge-camera-get-view-size)) cmd-char-height))
+                           (+ (* (length cmd-expr-visual) cmd-char-width)
+                              cmd-char-margin)
+                           (- (cdr (sge-camera-get-view-size))
+                              cmd-char-height cmd-char-margin))
+  (sge-entity-set-keyframe char-entity (- char-code 32))
   (set! cmd-expr-visual (cons char-entity cmd-expr-visual))
   (set! cmd-expr-raw (cons char-code cmd-expr-raw)))
 
@@ -71,7 +75,8 @@
          (set! cmd-char-pool (cons (car cmd-expr-visual) cmd-char-pool))
          (sge-entity-add-attrib (car cmd-expr-visual) sge-attrib-hidden)
          (set! cmd-expr-visual (cdr cmd-expr-visual))))
-  (set! cmd-expr-raw (cdr cmd-expr-raw)))
+  (cond ((null? cmd-expr-raw) '())
+        (else (set! cmd-expr-raw (cdr cmd-expr-raw)))))
 
 (define (cmd-clear-expr)
   (cond ((null? cmd-expr-raw) '())
@@ -87,12 +92,33 @@
    10 ;; return
    ))
 
-(define (cmd-eval-and-post-result)
-  (define code (utf8->string
-                (u8-list->bytevector (reverse cmd-expr-raw))))
-  (define result (eval-string code))
-  ;; TODO: write result to cmd box...
-  (cmd-clear-expr))
+(define (cmd->string)
+  (utf8->string (u8-list->bytevector (reverse cmd-expr-raw))))
+
+(define cmd-history '())
+
+(define (cmd-push-history)
+  (set! cmd-history (cons cmd-expr-raw cmd-history)))
+
+(define (cmd-consume)
+  (define result (eval-string (cmd->string)))
+  (cmd-push-history)
+  (cmd-clear-expr)
+  result)
+
+(define cmd-hist-ptr -1)
+
+(define cmd-cache '())
+
+(define (cmd-replace new-cmd)
+  (cond ((null? new-cmd) '())
+        (else
+         (cmd-append-char (car new-cmd))
+         (cmd-replace (cdr new-cmd)))))
+
+(define (cmd-restore-history history-item)
+  (cmd-clear-expr)
+  (cmd-replace (reverse (list-ref cmd-history history-item))))
 
 (define (cmd-read)
   (define continue #t)
@@ -103,16 +129,29 @@
               (else
                (case (car event)
                  ((sge-event-text)
+                  (set! cmd-hist-ptr -1)
                   (cond ((not (member (cdr event) cmd-text-blacklist))
                          (cmd-append-char (cdr event)))))
                  ((sge-event-key-pressed)
                   (let ((pressed (cdr event)))
                     (cond
                      ((eq? pressed sge-key-esc) (set! continue #f))
-                     ((eq? pressed sge-key-return)
-                      (cmd-eval-and-post-result))
-                     ((eq? pressed sge-key-backspace)
-                      (cmd-pop-char))))))
+                     ((eq? pressed sge-key-return) (cmd-consume))
+                     ((eq? pressed sge-key-backspace) (cmd-pop-char))
+                     ((eq? pressed sge-key-up)
+                      (cond ((< cmd-hist-ptr
+                                (- (length cmd-history) 1))
+                             (cond ((eq? cmd-hist-ptr -1)
+                                    (set! cmd-cache cmd-expr-raw)))
+                             (set! cmd-hist-ptr (+ cmd-hist-ptr 1))
+                             (cmd-restore-history cmd-hist-ptr))))
+                     ((eq? pressed sge-key-down)
+                      (cond ((eq? cmd-hist-ptr -1) '())
+                            ((eq? cmd-hist-ptr 0)
+                             (cmd-clear-expr)
+                             (cmd-replace (reverse cmd-cache)))
+                            (else (cmd-restore-history (- cmd-hist-ptr 1))))
+                      (set! cmd-hist-ptr (max -1 (- cmd-hist-ptr 1))))))))
                (get-event))))))
   (get-event)
   (cond ((or (not continue)
