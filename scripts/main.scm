@@ -21,6 +21,19 @@
 (define *logic-timer* (sge-timer-create))
 (define *low-power-mode* #t)
 
+(sge-record-events #t)
+
+(define (poll-events)
+  (let ((event (sge-poll-events)))
+    (cond ((null? event) '())
+          (else
+           (case (car event)
+             ((sge-event-key-pressed)
+              (let ((pressed (cdr event)))
+                (cond
+                 ((eq? pressed sge-key-esc) (cmd-mode))))))
+           (poll-events)))))
+
 (define (lpm-sleep)
   (let ((logic-usec (sge-timer-reset *logic-timer*)))
     (sge-micro-sleep (max 0 (- 2000 logic-usec)))))
@@ -29,8 +42,8 @@
   (cond ((not (sge-is-running?)) '())
    (else
     (logic-step (sge-timer-reset *delta-timer*))
-    (cond (*low-power-mode*) (lpm-sleep))
-    (cond ((sge-key-pressed? sge-key-esc) (cmd-mode)))
+    (poll-events)
+    (cond (*low-power-mode* (lpm-sleep)))
     (logic-loop))))
 
 (define *player* (Player))

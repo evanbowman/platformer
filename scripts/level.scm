@@ -138,6 +138,6 @@
 (apt-hallway
  'add-entry-hook
  (lambda ()
-   (define bkg (entity-create))
+   (define bkg (sge-entity-create))
    ;(entity-set-animation bkg ...)
    (apt-hallway 'add-entity bkg)))
