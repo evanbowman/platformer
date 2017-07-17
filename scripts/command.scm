@@ -51,6 +51,7 @@
   (sge-entity-set-animation char-entity anim-ubuntu-mono-18)
   (sge-entity-set-zorder char-entity 1001)
   (sge-entity-add-attrib char-entity sge-attrib-position-absolute)
+  (sge-entity-set-rgba char-entity 200 200 200 255)
   char-entity)
 
 (define (cmd-append-char char-code)
@@ -100,9 +101,17 @@
 (define (cmd-push-history)
   (set! cmd-history (cons cmd-expr-raw cmd-history)))
 
+(define (cmd-push-history-norepeat)
+  (cond
+   ((null? cmd-history) (cmd-push-history))
+   (else
+    (cond
+     ((equal? cmd-expr-raw (list-ref cmd-history 0)) '())
+     (else (cmd-push-history))))))
+
 (define (cmd-consume)
   (define result (eval-string (cmd->string)))
-  (cmd-push-history)
+  (cmd-push-history-norepeat)
   (cmd-clear-expr)
   result)
 

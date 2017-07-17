@@ -32,11 +32,18 @@
      (set! y-speed 0)
      (set! state 'idle)
      (set! keyframe 0)
+     (sge-entity-set-position entity-handle x y)
      (sge-entity-set-animation entity-handle anim-player-run)
      (sge-entity-set-keyframe entity-handle 0)))
 
   ((get-position)
    (lambda () (cons x-pos y-pos)))
+
+  ((set-position)
+   (lambda (x y)
+     (set! x-pos x)
+     (set! y-pos y)
+     (sge-entity-set-position entity-handle x y)))
   
   ((update)
    (lambda (dt)
