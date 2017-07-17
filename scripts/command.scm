@@ -1,7 +1,7 @@
 ;;;
 ;;; command.scm
 ;;;
-;;; Evaluate new code from the user. The procedure read-command
+;;; Evaluate new code from the user. The procedure cmd-mode
 ;;; creates a text entry zone, sort of like the emacs minibuffer,
 ;;; where the user can input s-expressions to be evaluated.
 ;;;
