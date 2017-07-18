@@ -15,7 +15,9 @@
 (include "command.scm")
 
 (define (main)
-  (logic-loop))
+  (cmd-load-history)  
+  (logic-loop)
+  (cmd-save-history))
 
 (define *delta-timer* (sge-timer-create))
 (define *logic-timer* (sge-timer-create))

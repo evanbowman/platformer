@@ -123,6 +123,16 @@
 
 (define cmd-history '())
 
+(define (cmd-save-history)
+  (call-with-output-file ".cmd-history"
+    (lambda (port)
+      (write cmd-history port))))
+
+(define (cmd-load-history)
+  (call-with-input-file ".cmd-history"
+    (lambda (port)
+      (set! cmd-history (read port)))))
+
 (define (cmd-push-history)
   (set! cmd-history (cons cmd-expr-raw cmd-history)))
 
