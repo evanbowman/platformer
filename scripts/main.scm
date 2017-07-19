@@ -15,7 +15,7 @@
 (include "command.scm")
 
 (define (main)
-  ;;(cmd-load-history)  
+  (cmd-load-history)  
   (logic-loop)
   (cmd-save-history))
 
@@ -35,11 +35,13 @@
              ((sge-event-key-pressed)
               (let ((pressed (cdr event)))
                 (cond
-                 ((eq? pressed sge-key-esc) (cmd-mode))
-                 (else (vector-set! *key-vec* pressed #t)))))
+                 ((eq? pressed sge-key-esc)
+                  (cmd-mode))
+                 (else
+                  (vector-set! *key-vec* pressed #t)))))
              ((sge-event-key-released)
-              (let ((pressed (cdr event)))
-                (vector-set! *key-vec* pressed #f))))
+              (let ((released (cdr event)))
+                (vector-set! *key-vec* released #f))))
            (poll-events)))))
 
 (define (lpm-sleep)
