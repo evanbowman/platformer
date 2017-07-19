@@ -48,7 +48,7 @@
   ((update)
    (lambda (dt)
      (define (run-impl stop-key)
-       (cond ((not (sge-key-pressed? stop-key))
+       (cond ((not (vector-ref *key-vec* stop-key))
               (set! state 'idle)
               (set! keyframe 0)
               (sge-entity-set-keyframe entity-handle 0)))
@@ -70,11 +70,11 @@
        
        ((idle)
         (cond
-         ((sge-key-pressed? mapped-key-left)
+         ((vector-ref *key-vec* mapped-key-left)
           (set! state 'run-left)
           (set! x-speed -0.01)
           (sge-entity-set-scale entity-handle -1.0 1.0))
-         ((sge-key-pressed? mapped-key-right)
+         ((vector-ref *key-vec* mapped-key-right)
           (set! state 'run-right)
           (set! x-speed 0.01)
           (sge-entity-set-scale entity-handle 1.0 1.0)))
