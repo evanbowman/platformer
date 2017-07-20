@@ -13,6 +13,7 @@
 (include "controls.scm")
 (include "animations.scm")
 (include "command.scm")
+(include "utility.scm")
 
 (define (main)
   (cmd-load-history)  

@@ -56,11 +56,11 @@
   (sge-timer-reset *delta-timer*)
   (sge-timer-reset *logic-timer*))
 
-(define cmd-expr-raw '())
-(define cmd-expr-visual '())
+(define *cmd-expr-raw* '())
+(define *cmd-expr-visual* '())
 ;; Maintain a pool of chars so we don't stupidly exhaust UUIDs when
 ;; creating tons of new character entitys.
-(define cmd-char-pool '())
+(define *cmd-char-pool* '())
 
 (define (cmd-create-char)
   (define char-entity (sge-entity-create))
@@ -69,43 +69,58 @@
   (sge-entity-set-animation char-entity anim-ubuntu-mono-18)
   (sge-entity-set-zorder char-entity 1001)
   (sge-entity-add-attrib char-entity sge-attrib-position-absolute)
-  (sge-entity-set-rgba char-entity 200 200 200 255)
   char-entity)
 
 (define (cmd-get-char)
   (cond
-   ((null? cmd-char-pool) (cmd-create-char))
+   ((null? *cmd-char-pool*) (cmd-create-char))
    (else
-    (let ((top-char (car cmd-char-pool)))
-      (set! cmd-char-pool (cdr cmd-char-pool))
+    (let ((top-char (car *cmd-char-pool*)))
+      (set! *cmd-char-pool* (cdr *cmd-char-pool*))
       top-char))))
+
+(define cmd-input-rgb (vector 200 200 200))
+(define cmd-result-rgb (vector 170 170 170))
+
+(define *cmd-current-rgb* cmd-input-rgb)
 
 (define (cmd-push-char char-code)
   (define char-entity (cmd-get-char))
-  (sge-entity-remove-attrib char-entity sge-attrib-hidden)
-  (let ((char-x (+ (* (length cmd-expr-visual) cmd-char-width)
-                   cmd-char-margin))
-        (char-y (- (cdr (sge-camera-get-view-size))
-                   cmd-char-height cmd-char-margin)))
-    (sge-entity-set-position char-entity char-x char-y))
-  (sge-entity-set-keyframe char-entity (- char-code 32))
-  (set! cmd-expr-visual (cons char-entity cmd-expr-visual))
-  (set! cmd-expr-raw (cons char-code cmd-expr-raw)))
+  (define expr-len (length *cmd-expr-visual*))
+  (define view-size (sge-camera-get-view-size))
+  (cond
+   ((< (* (+ expr-len 1) cmd-char-width) (car view-size))
+    (sge-entity-remove-attrib char-entity sge-attrib-hidden)
+    (let ((char-x (+ (* expr-len cmd-char-width)
+                     cmd-char-margin))
+          (char-y (- (cdr view-size)
+                     cmd-char-height cmd-char-margin)))
+      (sge-entity-set-position char-entity char-x char-y))
+    (sge-entity-set-keyframe char-entity (- char-code 32))
+    (sge-entity-set-rgba char-entity
+                         (vector-ref *cmd-current-rgb* 0)
+                         (vector-ref *cmd-current-rgb* 1)
+                         (vector-ref *cmd-current-rgb* 2)
+                         255)
+    (set! *cmd-expr-visual* (cons char-entity *cmd-expr-visual*))
+    (set! *cmd-expr-raw* (cons char-code *cmd-expr-raw*))
+    char-entity)
+   (else '())))
 
 (define (cmd-pop-char)
-  (cond ((null? cmd-expr-visual) '())
+  (cond ((null? *cmd-expr-visual*) '())
         (else
-         (set! cmd-char-pool (cons (car cmd-expr-visual) cmd-char-pool))
-         (sge-entity-add-attrib (car cmd-expr-visual) sge-attrib-hidden)
-         (set! cmd-expr-visual (cdr cmd-expr-visual))))
-  (cond ((null? cmd-expr-raw) '())
+         (set! *cmd-char-pool* (cons (car *cmd-expr-visual*) *cmd-char-pool*))
+         (sge-entity-add-attrib (car *cmd-expr-visual*) sge-attrib-hidden)
+         (set! *cmd-expr-visual* (cdr *cmd-expr-visual*))))
+  (cond ((null? *cmd-expr-raw*) '())
         (else
-         (let ((top (car cmd-expr-raw)))
-           (set! cmd-expr-raw (cdr cmd-expr-raw))
+         (let ((top (car *cmd-expr-raw*)))
+           (set! *cmd-expr-raw* (cdr *cmd-expr-raw*))
            top))))
 
 (define (cmd-clear-expr)
-  (cond ((null? cmd-expr-raw) '())
+  (cond ((null? *cmd-expr-raw*) '())
         (else
          (cmd-pop-char)
          (cmd-clear-expr))))
@@ -119,14 +134,15 @@
    ))
 
 (define (cmd->string)
-  (utf8->string (u8-list->bytevector (reverse cmd-expr-raw))))
+  (utf8->string (u8-list->bytevector (reverse *cmd-expr-raw*))))
 
 (define cmd-history '())
 
 (define (cmd-save-history)
   (call-with-output-file ".cmd-history"
     (lambda (port)
-      (write cmd-history port))))
+      ;; Impose a history size limit to prevent startup lag
+      (write (truncate cmd-history 250) port))))
 
 (define (cmd-load-history)
   (call-with-input-file ".cmd-history"
@@ -134,18 +150,18 @@
       (set! cmd-history (read port)))))
 
 (define (cmd-push-history)
-  (set! cmd-history (cons cmd-expr-raw cmd-history)))
+  (set! cmd-history (cons *cmd-expr-raw* cmd-history)))
 
 (define (cmd-push-history-norepeat)
   (cond
    ((null? cmd-history) (cmd-push-history))
    (else
     (cond
-     ((equal? cmd-expr-raw (list-ref cmd-history 0)) '())
+     ((equal? *cmd-expr-raw* (list-ref cmd-history 0)) '())
      (else (cmd-push-history))))))
 
 (define (cmd-set-mark-offset offset-from-expr-end)
-  (define expr-len (length cmd-expr-raw))
+  (define expr-len (length *cmd-expr-raw*))
   (define offset (min expr-len (max 0 offset-from-expr-end)))
   (define pos (- expr-len offset))
   (define view-height (cdr (sge-camera-get-view-size)))
@@ -155,59 +171,32 @@
   (set-cdr! cmd-mark offset))
 
 (define (cmd-consume)
-  (define result (eval-string (cmd->string)))
-  (cmd-push-history-norepeat)
-  (cmd-clear-expr)
-  (cmd-set-mark-offset 0)
-  result)
+  (catch #t
+    (lambda ()
+      (define result (eval-string (cmd->string)))
+      (cmd-push-history-norepeat)
+      (cmd-clear-expr)
+      (cmd-set-mark-offset 0)
+      (format #f "~a" result))
+    (lambda (key . parameters)
+      (cmd-clear-expr)
+      (cmd-set-mark-offset 0)
+      (format #f "~a: ~a\n" key parameters))))
 
 (define cmd-hist-ptr -1)
 
 (define cmd-cache '())
 
 (define (cmd-replace new-cmd)
-  (cond ((null? new-cmd) '())
-        (else
-         (cmd-push-char (car new-cmd))
-         (cmd-replace (cdr new-cmd)))))
+  (cmd-clear-expr)
+  (let replace-impl ((cmd new-cmd))
+    (cond ((null? cmd) '())
+          (else
+           (cmd-push-char (car cmd))
+           (replace-impl (cdr cmd))))))
 
 (define (cmd-restore-history history-item)
-  (cmd-clear-expr)
   (cmd-replace (reverse (list-ref cmd-history history-item))))
-
-(define (cmd-on-up-arrow)
-  (define old-expr-len (length cmd-expr-raw))
-  (cond
-   ((< cmd-hist-ptr (- (length cmd-history) 1))
-    (cond
-     ((eq? cmd-hist-ptr -1)
-      (set! cmd-cache cmd-expr-raw)))
-    (set! cmd-hist-ptr (+ cmd-hist-ptr 1))
-    (cmd-restore-history cmd-hist-ptr)))
-  (cmd-set-mark-offset 0))
-
-(define (cmd-on-down-arrow)
-  (cond
-   ((eq? cmd-hist-ptr -1) '())
-   ((eq? cmd-hist-ptr 0)
-    (cmd-clear-expr)
-    (cmd-replace (reverse cmd-cache)))
-   (else
-    (cmd-restore-history (- cmd-hist-ptr 1))))
-  (set! cmd-hist-ptr (max -1 (- cmd-hist-ptr 1)))
-  (cmd-set-mark-offset 0))
-
-(define (cmd-on-text-event text-char)
-  (set! cmd-hist-ptr -1)
-  (cond ((not (member text-char cmd-text-blacklist))
-         (cond
-          ((eq? (cdr cmd-mark) 0)
-           (cmd-push-char text-char)
-           (cmd-set-mark-offset (cdr cmd-mark)))
-          (else
-           (cmd-rebase-edit
-            (lambda () (cmd-push-char text-char))
-            (lambda () (cmd-set-mark-offset (cdr cmd-mark)))))))))
 
 (define (cmd-rebase-edit expr-modifier mark-modifier)
   "Apply expr-modifier at the mark head, then apply mark-modifier."
@@ -223,9 +212,49 @@
           (cmd-push-char (car r-list))
           (replay (cdr r-list))))))
      (else
-      (let ((expr-top (car cmd-expr-raw)))
+      (let ((expr-top (car *cmd-expr-raw*)))
         (cmd-pop-char)
         (remove (- depth 1) (cons expr-top replay-list)))))))
+
+(define *cmd-displaying-result* #f)
+
+(define (cmd-clear-if-displaying-result)
+  (cond
+   (*cmd-displaying-result*
+    (cmd-clear-expr)
+    (set! *cmd-displaying-result* #f))))
+
+(define (cmd-on-up-arrow)
+  (let ((old-expr-len (length *cmd-expr-raw*)))
+    (cond
+     ((< cmd-hist-ptr (- (length cmd-history) 1))
+      (cond
+       ((eq? cmd-hist-ptr -1)
+        (set! cmd-cache *cmd-expr-raw*)))
+      (set! cmd-hist-ptr (+ cmd-hist-ptr 1))
+      (cmd-restore-history cmd-hist-ptr)))
+    (cmd-set-mark-offset 0)))
+
+(define (cmd-on-down-arrow)
+  (cond
+   ((eq? cmd-hist-ptr -1) '())
+   ((eq? cmd-hist-ptr 0)
+    (cmd-replace (reverse cmd-cache)))
+   (else
+    (cmd-restore-history (- cmd-hist-ptr 1))))
+  (set! cmd-hist-ptr (max -1 (- cmd-hist-ptr 1)))
+  (cmd-set-mark-offset 0))
+
+(define (cmd-on-text-event text-char)
+  (set! cmd-hist-ptr -1)
+  (cond
+   ((eq? (cdr cmd-mark) 0)
+    (cmd-push-char text-char)
+    (cmd-set-mark-offset (cdr cmd-mark)))
+   (else
+    (cmd-rebase-edit
+     (lambda () (cmd-push-char text-char))
+     (lambda () (cmd-set-mark-offset (cdr cmd-mark)))))))
 
 (define (cmd-on-backspace)
   (cond
@@ -233,7 +262,7 @@
     (cmd-pop-char)
     (cmd-set-mark-offset 0))
    (else
-    (let ((expr-len (length cmd-expr-raw)))
+    (let ((expr-len (length *cmd-expr-raw*)))
       (cond
        ((eq? expr-len (cdr cmd-mark)) '())
        (else
@@ -247,6 +276,14 @@
 (define (cmd-on-right-arrow)
   (cmd-set-mark-offset (- (cdr cmd-mark) 1)))
 
+(define (cmd-on-enter)
+  (set! *cmd-current-rgb* cmd-result-rgb)
+  (cmd-replace (bytevector->u8-list
+                (string->utf8 (cmd-consume))))
+  (set! *cmd-current-rgb* cmd-input-rgb)
+  (set! cmd-hist-ptr -1)
+  (set! *cmd-displaying-result* #t))
+
 (define (cmd-read)
   (define continue #t)
   (define get-event
@@ -255,12 +292,18 @@
         (cond ((null? event) '())
               (else
                (case (car event)
-                 ((sge-event-text) (cmd-on-text-event (cdr event)))
+                 ((sge-event-text)
+                  (let ((text-char (cdr event)))
+                    (cond
+                     ((not (member text-char cmd-text-blacklist))
+                      (cmd-clear-if-displaying-result)
+                      (cmd-on-text-event text-char)))))
                  ((sge-event-key-pressed)
+                  (cmd-clear-if-displaying-result)
                   (let ((pressed (cdr event)))
                     (cond
                      ((eq? pressed sge-key-esc) (set! continue #f))
-                     ((eq? pressed sge-key-return) (cmd-consume))
+                     ((eq? pressed sge-key-return) (cmd-on-enter))
                      ((eq? pressed sge-key-backspace) (cmd-on-backspace))
                      ((eq? pressed sge-key-up) (cmd-on-up-arrow))
                      ((eq? pressed sge-key-down) (cmd-on-down-arrow))
