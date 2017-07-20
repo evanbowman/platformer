@@ -80,7 +80,7 @@
       top-char))))
 
 (define cmd-input-rgb (vector 200 200 200))
-(define cmd-result-rgb (vector 170 170 170))
+(define cmd-result-rgb (vector 160 160 160))
 
 (define *cmd-current-rgb* cmd-input-rgb)
 
@@ -277,12 +277,25 @@
   (cmd-set-mark-offset (- (cdr cmd-mark) 1)))
 
 (define (cmd-on-enter)
-  (set! *cmd-current-rgb* cmd-result-rgb)
-  (cmd-replace (bytevector->u8-list
-                (string->utf8 (cmd-consume))))
-  (set! *cmd-current-rgb* cmd-input-rgb)
-  (set! cmd-hist-ptr -1)
-  (set! *cmd-displaying-result* #t))
+  (cond
+   ((null? *cmd-expr-raw*) '())
+   (else
+    (set! *cmd-current-rgb* cmd-result-rgb)
+    (let ((res-u8-list (bytevector->u8-list
+                        (string->utf8 (cmd-consume)))))
+      (let ((view-width (car (sge-camera-get-view-size))))
+        (cmd-replace
+         (cond
+          ((> (* (length res-u8-list) cmd-char-width) view-width)
+           (append
+            (truncate res-u8-list
+                      (inexact->exact
+                       (round (- (/ view-width cmd-char-width) 4))))
+            (list 46 46 46)))
+          (else res-u8-list)))
+        (set! *cmd-current-rgb* cmd-input-rgb)
+        (set! cmd-hist-ptr -1)
+        (set! *cmd-displaying-result* #t))))))
 
 (define (cmd-read)
   (define continue #t)
