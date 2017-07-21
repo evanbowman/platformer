@@ -32,16 +32,16 @@
   (let ((event (sge-poll-events)))
     (cond ((null? event) '())
           (else
-           (case (car event)
+           (case (vector-ref event 0)
              ((sge-event-key-pressed)
-              (let ((pressed (cdr event)))
+              (let ((pressed (vector-ref event 1)))
                 (cond
                  ((eq? pressed sge-key-esc)
                   (cmd-mode))
                  (else
                   (vector-set! *key-vec* pressed #t)))))
              ((sge-event-key-released)
-              (let ((released (cdr event)))
+              (let ((released (vector-ref event 1)))
                 (vector-set! *key-vec* released #f))))
            (poll-events)))))
 

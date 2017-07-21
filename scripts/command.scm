@@ -80,7 +80,7 @@
       top-char))))
 
 (define cmd-input-rgb (vector 200 200 200))
-(define cmd-result-rgb (vector 160 160 160))
+(define cmd-result-rgb (vector 150 150 150))
 
 (define *cmd-current-rgb* cmd-input-rgb)
 
@@ -297,6 +297,19 @@
         (set! cmd-hist-ptr -1)
         (set! *cmd-displaying-result* #t))))))
 
+(define cmd-hotkey-alist
+  (list
+   (cons sge-key-a (lambda ()
+                     (cmd-set-mark-offset (length *cmd-expr-raw*))))
+   (cons sge-key-e (lambda ()
+                     (cmd-set-mark-offset 0)))))
+
+(define (cmd-on-hotkey key)
+  (define resp (assq key cmd-hotkey-alist))
+  (case resp
+    ((#f) '())
+    (else ((cdr resp)))))
+
 (define (cmd-read)
   (define continue #t)
   (define get-event
@@ -304,24 +317,32 @@
       (let ((event (sge-poll-events)))
         (cond ((null? event) '())
               (else
-               (case (car event)
+               (case (vector-ref event 0)
                  ((sge-event-text)
-                  (let ((text-char (cdr event)))
+                  (let ((text-char (vector-ref event 1)))
                     (cond
                      ((not (member text-char cmd-text-blacklist))
                       (cmd-clear-if-displaying-result)
                       (cmd-on-text-event text-char)))))
                  ((sge-event-key-pressed)
                   (cmd-clear-if-displaying-result)
-                  (let ((pressed (cdr event)))
+                  (let ((key (vector-ref event 1)))
+                    (vector-set! *key-vec* key #t)
                     (cond
-                     ((eq? pressed sge-key-esc) (set! continue #f))
-                     ((eq? pressed sge-key-return) (cmd-on-enter))
-                     ((eq? pressed sge-key-backspace) (cmd-on-backspace))
-                     ((eq? pressed sge-key-up) (cmd-on-up-arrow))
-                     ((eq? pressed sge-key-down) (cmd-on-down-arrow))
-                     ((eq? pressed sge-key-left) (cmd-on-left-arrow))
-                     ((eq? pressed sge-key-right) (cmd-on-right-arrow))))))
+                     ((or (vector-ref *key-vec* sge-key-lctrl)
+                          (vector-ref *key-vec* sge-key-rctrl))
+                      (cmd-on-hotkey key))
+                     (else
+                      (cond
+                       ((eq? key sge-key-esc) (set! continue #f))
+                       ((eq? key sge-key-return) (cmd-on-enter))
+                       ((eq? key sge-key-backspace) (cmd-on-backspace))
+                       ((eq? key sge-key-up) (cmd-on-up-arrow))
+                       ((eq? key sge-key-down) (cmd-on-down-arrow))
+                       ((eq? key sge-key-left) (cmd-on-left-arrow))
+                       ((eq? key sge-key-right) (cmd-on-right-arrow)))))))
+                 ((sge-event-key-released)
+                  (vector-set! *key-vec* (vector-ref event 1) #f)))
                (get-event))))))
   (get-event)
   (cond ((or (not continue)
