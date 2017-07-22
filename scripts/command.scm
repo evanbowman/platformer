@@ -6,20 +6,14 @@
 ;;; where the user can input s-expressions to be evaluated.
 ;;;
 
-(use-modules (rnrs bytevectors))
+(import (scheme file))
 
-(define cmd-box
-  (sge-entity-set-rgba
-   (sge-entity-set-zorder
-    (sge-entity-set-animation
-     (sge-entity-add-attrib
-      (sge-entity-add-attrib
-       (sge-entity-create)
-       sge-attrib-hidden)
-      sge-attrib-position-absolute)
-     anim-pixel)
-    1000)
-   0 0 0 100))
+(define cmd-box (sge-entity-create))
+(sge-entity-set-animation cmd-box (anim-ref 'anim-pixel))
+(sge-entity-set-zorder cmd-box 1000)
+(sge-entity-add-attrib cmd-box sge-attrib-hidden)
+(sge-entity-add-attrib cmd-box sge-attrib-position-absolute)
+(sge-entity-set-rgba cmd-box #(0 0 0 100))
 
 (define cmd-mark
   (cons
@@ -27,34 +21,28 @@
     (sge-entity-set-zorder
      (sge-entity-set-scale
       (sge-entity-clone cmd-box)
-      1 18)
+      (cons 1.0 18.0))
      1001)
-    255 79 0 255)
+    #(255 79 0 255))
    0))
 
-(define cmd-box-height 25)
-(define cmd-char-width 9)
-(define cmd-char-height 18)
-(define cmd-char-margin 3)
+(define cmd-box-height 25.0)
+(define cmd-char-width 9.0)
+(define cmd-char-height 18.0)
+(define cmd-char-margin 3.0)
 
 (define (cmd-mode)
-  (define view-size (sge-camera-get-view-size))
+  (define view-size (sge-camera-get-viewsize))
   (set! cmd-hist-ptr -1)
   (sge-entity-remove-attrib cmd-box sge-attrib-hidden)
   (sge-entity-remove-attrib (car cmd-mark) sge-attrib-hidden)
   (cmd-set-mark-offset 0)
-  (sge-entity-set-scale cmd-box (car view-size) cmd-box-height)
-  (sge-entity-set-position cmd-box 0 (- (cdr view-size) cmd-box-height))
+  (sge-entity-set-scale cmd-box (cons (car view-size) cmd-box-height))
+  (sge-entity-set-position cmd-box (cons 0.0 (- (cdr view-size) cmd-box-height)))
   (cmd-read)
   (cmd-clear-expr)
   (sge-entity-add-attrib cmd-box sge-attrib-hidden)
-  (sge-entity-add-attrib (car cmd-mark) sge-attrib-hidden)
-  ;; If we don't reset the game's delta timers to ignore
-  ;; elapsed time during text entry, the game will think that
-  ;; a huge amount of time elapsed when in reality the game
-  ;; was merely paused.
-  (sge-timer-reset *delta-timer*)
-  (sge-timer-reset *logic-timer*))
+  (sge-entity-add-attrib (car cmd-mark) sge-attrib-hidden))
 
 (define *cmd-expr-raw* '())
 (define *cmd-expr-visual* '())
@@ -64,9 +52,7 @@
 
 (define (cmd-create-char)
   (define char-entity (sge-entity-create))
-  (sge-entity-set-animation char-entity anim-pixel)
-  (sge-entity-set-scale char-entity cmd-char-width cmd-char-height)
-  (sge-entity-set-animation char-entity anim-ubuntu-mono-18)
+  (sge-entity-set-animation char-entity (anim-ref 'anim-ub-mono18))
   (sge-entity-set-zorder char-entity 1001)
   (sge-entity-add-attrib char-entity sge-attrib-position-absolute)
   char-entity)
@@ -79,29 +65,26 @@
       (set! *cmd-char-pool* (cdr *cmd-char-pool*))
       top-char))))
 
-(define cmd-input-rgb (vector 200 200 200))
-(define cmd-result-rgb (vector 150 150 150))
+(define cmd-input-rgba #(200 200 200 255))
+(define cmd-result-rgba #(150 150 150 255))
 
-(define *cmd-current-rgb* cmd-input-rgb)
+(define *cmd-current-rgba* cmd-input-rgba)
 
 (define (cmd-push-char char-code)
   (define char-entity (cmd-get-char))
   (define expr-len (length *cmd-expr-visual*))
-  (define view-size (sge-camera-get-view-size))
+  (define view-size (sge-camera-get-viewsize))
   (cond
    ((< (* (+ expr-len 1) cmd-char-width) (car view-size))
     (sge-entity-remove-attrib char-entity sge-attrib-hidden)
-    (let ((char-x (+ (* expr-len cmd-char-width)
-                     cmd-char-margin))
-          (char-y (- (cdr view-size)
-                     cmd-char-height cmd-char-margin)))
-      (sge-entity-set-position char-entity char-x char-y))
+    (sge-entity-set-position char-entity
+                             (cons
+                              (+ (* expr-len cmd-char-width)
+                                 cmd-char-margin)
+                              (- (cdr view-size)
+                                 cmd-char-height cmd-char-margin)))
     (sge-entity-set-keyframe char-entity (- char-code 32))
-    (sge-entity-set-rgba char-entity
-                         (vector-ref *cmd-current-rgb* 0)
-                         (vector-ref *cmd-current-rgb* 1)
-                         (vector-ref *cmd-current-rgb* 2)
-                         255)
+    (sge-entity-set-rgba char-entity *cmd-current-rgba*)
     (set! *cmd-expr-visual* (cons char-entity *cmd-expr-visual*))
     (set! *cmd-expr-raw* (cons char-code *cmd-expr-raw*))
     char-entity)
@@ -133,21 +116,20 @@
    10 ;; return
    ))
 
-(define (cmd->string)
-  (utf8->string (u8-list->bytevector (reverse *cmd-expr-raw*))))
-
 (define cmd-history '())
 
 (define (cmd-save-history)
-  (call-with-output-file ".cmd-history"
+  (call-with-output-file (string-append *resource-path* ".cmd-history")
     (lambda (port)
       ;; Impose a history size limit to prevent startup lag
       (write (truncate cmd-history 250) port))))
 
 (define (cmd-load-history)
-  (call-with-input-file ".cmd-history"
-    (lambda (port)
-      (set! cmd-history (read port)))))
+  (define input-path (string-append *resource-path* ".cmd-history"))
+  (cond
+   ((file-exists? input-path)
+    (call-with-input-file input-path
+      (lambda (port) (set! cmd-history (read port)))))))
 
 (define (cmd-push-history)
   (set! cmd-history (cons *cmd-expr-raw* cmd-history)))
@@ -164,24 +146,18 @@
   (define expr-len (length *cmd-expr-raw*))
   (define offset (min expr-len (max 0 offset-from-expr-end)))
   (define pos (- expr-len offset))
-  (define view-height (cdr (sge-camera-get-view-size)))
+  (define view-height (cdr (sge-camera-get-viewsize)))
   (sge-entity-set-position (car cmd-mark)
-                           (+ cmd-char-margin (* pos cmd-char-width))
-                           (- view-height cmd-char-height cmd-char-margin))
+                           (cons (+ cmd-char-margin (* pos cmd-char-width))
+                                 (- view-height cmd-char-height cmd-char-margin)))
   (set-cdr! cmd-mark offset))
 
 (define (cmd-consume)
-  (catch #t
-    (lambda ()
-      (define result (eval-string (cmd->string)))
-      (cmd-push-history-norepeat)
-      (cmd-clear-expr)
-      (cmd-set-mark-offset 0)
-      (format #f "~a" result))
-    (lambda (key . parameters)
-      (cmd-clear-expr)
-      (cmd-set-mark-offset 0)
-      (format #f "~a: ~a\n" key parameters))))
+  (define result (eval (read (open-input-string (int-list->string *cmd-expr-raw*)))))
+  (cmd-push-history-norepeat)
+  (cmd-clear-expr)
+  (cmd-set-mark-offset 0)
+  (->string result))
 
 (define cmd-hist-ptr -1)
 
@@ -280,10 +256,9 @@
   (cond
    ((null? *cmd-expr-raw*) '())
    (else
-    (set! *cmd-current-rgb* cmd-result-rgb)
-    (let ((res-u8-list (bytevector->u8-list
-                        (string->utf8 (cmd-consume)))))
-      (let ((view-width (car (sge-camera-get-view-size))))
+    (set! *cmd-current-rgba* cmd-result-rgba)
+    (let ((res-u8-list (string->int-list (cmd-consume))))
+      (let ((view-width (car (sge-camera-get-viewsize))))
         (cmd-replace
          (cond
           ((> (* (length res-u8-list) cmd-char-width) view-width)
@@ -293,7 +268,7 @@
                        (round (- (/ view-width cmd-char-width) 4))))
             (list 46 46 46)))
           (else res-u8-list)))
-        (set! *cmd-current-rgb* cmd-input-rgb)
+        (set! *cmd-current-rgba* cmd-input-rgba)
         (set! cmd-hist-ptr -1)
         (set! *cmd-displaying-result* #t))))))
 
@@ -314,40 +289,41 @@
   (define continue #t)
   (define get-event
     (lambda ()
-      (let ((event (sge-poll-events)))
+      (let ((event (sge-poll-event)))
         (cond ((null? event) '())
               (else
-               (case (vector-ref event 0)
-                 ((sge-event-text)
-                  (let ((text-char (vector-ref event 1)))
-                    (cond
-                     ((not (member text-char cmd-text-blacklist))
-                      (cmd-clear-if-displaying-result)
-                      (cmd-on-text-event text-char)))))
-                 ((sge-event-key-pressed)
-                  (cmd-clear-if-displaying-result)
-                  (let ((key (vector-ref event 1)))
-                    (vector-set! *key-vec* key #t)
-                    (cond
-                     ((or (vector-ref *key-vec* sge-key-lctrl)
-                          (vector-ref *key-vec* sge-key-rctrl))
-                      (cmd-on-hotkey key))
-                     (else
-                      (cond
-                       ((eq? key sge-key-esc) (set! continue #f))
-                       ((eq? key sge-key-return) (cmd-on-enter))
-                       ((eq? key sge-key-backspace) (cmd-on-backspace))
-                       ((eq? key sge-key-up) (cmd-on-up-arrow))
-                       ((eq? key sge-key-down) (cmd-on-down-arrow))
-                       ((eq? key sge-key-left) (cmd-on-left-arrow))
-                       ((eq? key sge-key-right) (cmd-on-right-arrow)))))))
-                 ((sge-event-key-released)
-                  (vector-set! *key-vec* (vector-ref event 1) #f)))
+               (let ((event-code (vector-ref event 0)))
+                 (cond
+                  ((eq? event-code sge-event-text-entered)
+                   (let ((text-char (vector-ref event 1)))
+                     (cond
+                      ((not (member text-char cmd-text-blacklist))
+                       (cmd-clear-if-displaying-result)
+                       (cmd-on-text-event text-char)))))
+                  ((eq? event-code sge-event-key-pressed)
+                   (cmd-clear-if-displaying-result)
+                   (let ((key (vector-ref event 1)))
+                     (vector-set! *key-vec* key #t)
+                     (cond
+                      ((or (vector-ref *key-vec* sge-key-lctrl)
+                           (vector-ref *key-vec* sge-key-rctrl))
+                       (cmd-on-hotkey key))
+                      (else
+                       (cond
+                        ((eq? key sge-key-esc) (set! continue #f))
+                        ((eq? key sge-key-return) (cmd-on-enter))
+                        ((eq? key sge-key-backspace) (cmd-on-backspace))
+                        ((eq? key sge-key-up) (cmd-on-up-arrow))
+                        ((eq? key sge-key-down) (cmd-on-down-arrow))
+                        ((eq? key sge-key-left) (cmd-on-left-arrow))
+                        ((eq? key sge-key-right) (cmd-on-right-arrow)))))))
+                  ((eq? event-code sge-event-key-released)
+                   (vector-set! *key-vec* (vector-ref event 1) #f))))
                (get-event))))))
   (get-event)
   (cond ((or (not continue)
              (not (sge-is-running?)))
          '())
         (else
-         (sge-micro-sleep 5000)
+         (sge-microsleep 5000)
          (cmd-read))))
