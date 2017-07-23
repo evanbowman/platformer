@@ -8,12 +8,13 @@
   (load (string-append *resource-path* "scripts/" fname)))
 
 (require "utils.scm")
-(require "animations.scm")
+(require "anim-manager.scm")
 (require "controls.scm")
 (require "class.scm")
 (require "player.scm")
 (require "math.scm")
 (require "level.scm")
+(require "level-manager.scm")
 (require "command.scm")
 
 (define (lpm-sleep)
@@ -31,7 +32,7 @@
     (logic-loop))))
 
 (define (logic-step dt)
-  (*current-level* 'update dt))
+  (*lvl-current* 'update dt))
 
 (define (poll-events)
   (let ((event (sge-poll-event)))
@@ -46,7 +47,7 @@
             (cond ((eq? pressed sge-key-esc)
                    (cmd-mode)
                    ;; If we don't reset the game's delta timers to ignore
-                   ;; elapsed time during text entry, the game will think that
+                   ;; elapsed time during the repl, the game will think that
                    ;; a huge amount of time elapsed when in reality it
                    ;; was merely paused.
                    (sge-timer-reset *delta-timer*)
@@ -56,14 +57,7 @@
             (vector-set! *key-vec* released #f)))))
       (poll-events)))))
 
-(sge-camera-set-target (*player* 'get-handle))
-(sge-camera-set-springiness 1.5)
-(sge-camera-set-zoom
- (let ((avg-screen (/ (+ (car (sge-window-size))
-                         (cdr (sge-window-size))) 2)))
-   (floor (* avg-screen (/ 1.0 585.0)))))
-
-(switch-level apt-0)
+(lvl-switch 'apt-0)
 
 (cmd-load-history)
 (logic-loop)

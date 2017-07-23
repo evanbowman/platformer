@@ -272,18 +272,23 @@
         (set! cmd-hist-ptr -1)
         (set! *cmd-displaying-result* #t))))))
 
-(define cmd-hotkey-alist
+(define *cmd-ctrl-hotkey-alist*
   (list
-   (cons sge-key-a (lambda ()
-                     (cmd-set-mark-offset (length *cmd-expr-raw*))))
-   (cons sge-key-e (lambda ()
-                     (cmd-set-mark-offset 0)))))
+   (cons sge-key-a
+         (lambda ()
+           (cmd-set-mark-offset (length *cmd-expr-raw*))))
+   (cons sge-key-e
+         (lambda ()
+           (cmd-set-mark-offset 0)))))
 
-(define (cmd-on-hotkey key)
-  (define resp (assq key cmd-hotkey-alist))
+(define (cmd-hotkey-apply key alist)
+  (define resp (assq key alist))
   (case resp
     ((#f) '())
     (else ((cdr resp)))))
+
+(define (cmd-on-ctrl-hotkey key)
+  (cmd-hotkey-apply key *cmd-ctrl-hotkey-alist*))
 
 (define (cmd-read)
   (define continue #t)
@@ -307,7 +312,7 @@
                      (cond
                       ((or (vector-ref *key-vec* sge-key-lctrl)
                            (vector-ref *key-vec* sge-key-rctrl))
-                       (cmd-on-hotkey key))
+                       (cmd-on-ctrl-hotkey key))
                       (else
                        (cond
                         ((eq? key sge-key-esc) (set! continue #f))

@@ -34,7 +34,7 @@
 
   ((get-position)
    (lambda () pos))
-
+  
   ((set-position)
    (lambda (new-pos)
      (set! pos new-pos)
