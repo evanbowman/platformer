@@ -21,7 +21,7 @@
   ((entry-hooks '())
    (exit-hooks '())
    (update-hooks '())
-   (entity-alist '())
+   (entity-list '())
    (room-list '()))
 
   ((add-entry-hook)
@@ -37,9 +37,9 @@
      (set! update-hooks (cons hook update-hooks))))
   
   ((make-entity)
-   (lambda (symbol)
+   (lambda ()
      (define entity (sge-entity-create))
-     (set! entity-alist (cons (cons symbol entity) entity-alist))
+     (set! entity-list (cons entity entity-list))
      entity))
 
   ((add-room)
@@ -77,7 +77,7 @@
                                        (floor (inexact->exact new-alpha))))
           (vector-set! room 3 new-alpha))
         room-list)
-       (for-each (lambda (update-hook) (update-hook)) update-hooks))))
+       (for-each (lambda (update-hook) (update-hook dt)) update-hooks))))
    
   ((enter)
    (lambda ()
@@ -85,9 +85,9 @@
 
   ((exit)
    (lambda ()
-     (for-each (lambda (entry)
-                 (sge-entity-remove (cdr entry))) entity-alist)
+     (for-each (lambda (entity)
+                 (sge-entity-remove entity)) entity-list)
      (for-each (lambda (room) (remove-room room)) room-list)
-     (set! entity-alist '())
+     (set! entity-list '())
      (set! room-list '())
      (for-each (lambda (hook) (hook)) exit-hooks))))

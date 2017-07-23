@@ -19,7 +19,8 @@
   (*lvl-current* 'exit)
   (set! *lvl-current* '())
   (restore-level-defaults)
-  (load (string-append *resource-path* "scripts/levels/" (symbol->string symbol) ".scm"))
+  (load (string-append *resource-path* "scripts/levels/"
+                       (symbol->string symbol) ".scm"))
   (cond
    ((null? *lvl-current*)
     (error "level plugin did not set the current level"))))
