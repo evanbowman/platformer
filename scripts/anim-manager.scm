@@ -21,7 +21,7 @@
     (anim-pixel         #("pixel.png" 0 0 1 1 0.0 0.0))
     (anim-ub-mono18     #("ubuntu-mono-18.png" 0 0 9 18 0.0 0.0))
     (anim-sunsetgrad    #("sunset-grad.png" 0 0 300 300 0.0 0.0))
-    (anim-sunsetbldg1   #("sunset-bldg1.png" 0 0 321 506 0.0 506.0))
+    (anim-sunsetbldg1   #("sunset-bldg1.png" 0 0 361 506 0.0 506.0))
     (anim-sunsetskyline #("sunset-skyline.png" 0 0 346 322 346.0 280.0))))
 
 (define (anim-ref symbol)

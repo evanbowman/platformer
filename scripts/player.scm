@@ -43,18 +43,20 @@
   ((update)
    (lambda (dt)
      (define (run-impl stop-key)
-       (cond ((not (vector-ref *key-vec* stop-key))
-              (set! state 'idle)
-              (set! keyframe 0)
-              (sge-entity-set-keyframe entity-handle 0)))
        (cond
-        ((> anim-timer 60000)
-         (set! anim-timer 0)
-         (set! keyframe (if (< keyframe 10) (+ keyframe 1) 4))
-         (sge-entity-set-keyframe entity-handle keyframe))
-        (else (set! anim-timer (+ anim-timer dt))))
-       (set-car! speed (lerp (* 0.35 (sgn (car speed))) (car speed)
-                             (* dt 0.0000020))))
+        ((not (vector-ref *key-vec* stop-key))
+         (set! state 'idle)
+         (set! keyframe 0)
+         (sge-entity-set-keyframe entity-handle 0))
+        (else
+         (cond
+          ((> anim-timer 60000)
+           (set! anim-timer 0)
+           (set! keyframe (if (< keyframe 10) (+ keyframe 1) 4))
+           (sge-entity-set-keyframe entity-handle keyframe))
+          (else (set! anim-timer (+ anim-timer dt))))
+         (set-car! speed (lerp (* 0.35 (sgn (car speed))) (car speed)
+                               (* dt 0.0000020))))))
      
      (case state
        ((run-left)
