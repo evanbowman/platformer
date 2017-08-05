@@ -27,11 +27,12 @@
     '())
    (else
     (logic-step (sge-timer-reset *delta-timer*))
-    (poll-events)
     (cond (*low-power-mode* (lpm-sleep)))
     (logic-loop))))
 
 (define (logic-step dt)
+  (sge-collision-test)
+  (poll-events)
   (*lvl-current* 'update dt))
 
 (define (poll-events)
@@ -54,7 +55,11 @@
                    (sge-timer-reset *logic-timer*)))))
          ((eq? event-code sge-event-key-released)
           (let ((released (vector-ref event 1)))
-            (vector-set! *key-vec* released #f)))))
+            (vector-set! *key-vec* released #f)))
+         ((eq? event-code sge-event-collision)
+          (let ((first (vector-ref event 1))
+                (second (vector-ref event 2)))
+            (display (cons first second))))))
       (poll-events)))))
 
 (lvl-switch 'apt-0)
