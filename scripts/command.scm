@@ -8,6 +8,9 @@
 
 (import (scheme file))
 
+;; Required for procedure exception-message. Non-portable, obviously.
+(import (chibi ast))
+
 (define cmd-box (sge-entity-create))
 (sge-entity-set-animation cmd-box (anim-ref 'anim-pixel))
 (sge-entity-set-zorder cmd-box 1000)
@@ -116,30 +119,30 @@
    10 ;; return
    ))
 
-(define cmd-history '())
+(define *cmd-history* '())
 
 (define (cmd-save-history)
   (call-with-output-file (string-append *resource-path* ".cmd-history")
     (lambda (port)
       ;; Impose a history size limit to prevent startup lag
-      (write (truncate cmd-history 250) port))))
+      (write (truncate *cmd-history* 250) port))))
 
 (define (cmd-load-history)
   (define input-path (string-append *resource-path* ".cmd-history"))
   (cond
    ((file-exists? input-path)
     (call-with-input-file input-path
-      (lambda (port) (set! cmd-history (read port)))))))
+      (lambda (port) (set! *cmd-history* (read port)))))))
 
 (define (cmd-push-history)
-  (set! cmd-history (cons *cmd-expr-raw* cmd-history)))
+  (set! *cmd-history* (cons *cmd-expr-raw* *cmd-history*)))
 
 (define (cmd-push-history-norepeat)
   (cond
-   ((null? cmd-history) (cmd-push-history))
+   ((null? *cmd-history*) (cmd-push-history))
    (else
     (cond
-     ((equal? *cmd-expr-raw* (list-ref cmd-history 0)) '())
+     ((equal? *cmd-expr-raw* (list-ref *cmd-history* 0)) '())
      (else (cmd-push-history))))))
 
 (define (cmd-set-mark-offset offset-from-expr-end)
@@ -153,11 +156,23 @@
   (set-cdr! cmd-mark offset))
 
 (define (cmd-consume)
-  (define result (eval (read (open-input-string (int-list->string *cmd-expr-raw*)))))
-  (cmd-push-history-norepeat)
-  (cmd-clear-expr)
-  (cmd-set-mark-offset 0)
-  (->string result))
+  ;; call/cc because returning from an exception handler triggers
+  ;; another exception, but we instead want to serialize the error
+  ;; message and display it to the screen
+  (call-with-current-continuation
+   (lambda (return)
+     (with-exception-handler
+         (lambda (err)
+           (cmd-clear-expr)
+           (cmd-set-mark-offset 0)
+           (return (exception-message err)))
+       (lambda ()
+         (let ((result (eval (read (open-input-string
+                                    (int-list->string *cmd-expr-raw*))))))
+           (cmd-push-history-norepeat)
+           (cmd-clear-expr)
+           (cmd-set-mark-offset 0)
+           (return (->string result))))))))
 
 (define cmd-hist-ptr -1)
 
@@ -172,7 +187,7 @@
            (replace-impl (cdr cmd))))))
 
 (define (cmd-restore-history history-item)
-  (cmd-replace (reverse (list-ref cmd-history history-item))))
+  (cmd-replace (reverse (list-ref *cmd-history* history-item))))
 
 (define (cmd-rebase-edit expr-modifier mark-modifier)
   "Apply expr-modifier at the mark head, then apply mark-modifier."
@@ -203,7 +218,7 @@
 (define (cmd-on-up-arrow)
   (let ((old-expr-len (length *cmd-expr-raw*)))
     (cond
-     ((< cmd-hist-ptr (- (length cmd-history) 1))
+     ((< cmd-hist-ptr (- (length *cmd-history*) 1))
       (cond
        ((eq? cmd-hist-ptr -1)
         (set! cmd-cache *cmd-expr-raw*)))
